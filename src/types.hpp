@@ -126,19 +126,42 @@ struct SelfObservation {
     float speed;
     VehicleSize vehicle_size;
     Goal goal;
+    Goal global_goal;
     float collisionState;
+    madrona::math::Vector2 start;
 
     static inline SelfObservation zero() {
       return SelfObservation {
             .speed = 0,
-            .vehicle_size = {0, 0},
+            .vehicle_size = {0, 0},           
             .goal = {.position = {0, 0}},
-            .collisionState = 0
+            .global_goal = {.position = {0, 0}},
+            .collisionState = 0,
+            .start = {0, 0},
         };
     }
 };
 
-const size_t SelfObservationExportSize = 6;
+// struct SelfObservation {
+//     float speed;
+//     VehicleSize vehicle_size;
+//     Goal goal;
+//     float collisionState;
+//     Goal start;
+
+//     static inline SelfObservation zero() {
+//       return SelfObservation {
+//             .speed = 0,
+//             .vehicle_size = {0, 0},
+//             .start = {.position = {0, 0}},
+//             .goal = {.position = {0, 0}},
+//             .collisionState = 0
+            
+//         };
+//     }
+// };
+
+const size_t SelfObservationExportSize = 10;
 
 static_assert(sizeof(SelfObservation) == sizeof(float) * SelfObservationExportSize);
 

@@ -46,13 +46,14 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
 
         # Setup action and observation spaces
         self.observation_space = Box(
-            low=-np.inf, high=np.inf, shape=(self.get_obs().shape[-1],)
+            low=-np.inf, high=np.inf, shape=(self.get_obs()[0].shape[-1],)
         )
         self._setup_action_space(action_type)
         self.info_dim = 5  # Number of info features
         self.episode_len = self.config.episode_len
         # Rendering setup
         self.visualizer = self._setup_rendering()
+
 
     def reset(self):
         """Reset the worlds and return the initial observations."""
@@ -254,7 +255,7 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
             torch.Tensor: (num_worlds, max_agent_count, num_features)
         """
 
-        # EGO STATE
+        # EGO STATE [modify to (speed, length, width, rel_goal_x, rel_goal_y, global_goal_x, global_goal_y, collision, global_start_x, global_start_y)]
         if self.config.ego_state:
             ego_states_unprocessed = (
                 self.sim.self_observation_tensor().to_torch()
@@ -266,6 +267,11 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
         else:
             ego_states = torch.Tensor().to(self.device)
 
+        ego_states_full = ego_states.clone()
+        obs_filter_ids = [0, 1, 2, 3, 4, 7] # [speed, length, width, rel_goal_x, rel_goal_y, collision] 
+        ego_states = ego_states[:,:,obs_filter_ids]
+
+        #map_obs=self.sim.map_observation_tensor().to_torch()[0,:5,0:2]
         # PARTNER OBSERVATIONS
         if self.config.partner_obs:
             partner_observations = (
@@ -309,8 +315,7 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
             ),
             dim=-1,
         )
-
-        return obs_filtered
+        return obs_filtered, ego_states_full
 
     def get_controlled_agents_mask(self):
         """Get the control mask."""
@@ -349,7 +354,6 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
         """Get expert actions for the full trajectories across worlds."""
 
         expert_traj = self.sim.expert_trajectory_tensor().to_torch()
-
         # Global positions
         positions = expert_traj[:, :, : 2 * self.episode_len].view(
             self.num_worlds, self.max_agent_count, self.episode_len, -1
@@ -456,7 +460,6 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
         one_hot_encoded_object_types = self.one_hot_encode_object_type(
             obs[:, :, :, 6]
         )
-
         # Concat the one-hot encoding with the rest of the features
         obs = torch.concat(
             (obs[:, :, :, :6], one_hot_encoded_object_types), dim=-1

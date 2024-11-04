@@ -125,6 +125,25 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
     initWorld(ctx);
 }
 
+// inline void collectSelfObsSystem(Engine &ctx,
+//                            const VehicleSize &size,
+//                            const Position &pos,
+//                            const Rotation &rot,
+//                            const Velocity &vel,
+//                            const Goal &goal,
+//                            const CollisionDetectionEvent& collisionEvent,
+//                            const AgentInterfaceEntity &agent_iface)
+// {
+//     auto &self_obs = ctx.get<SelfObservation>(agent_iface.e);
+//     self_obs.speed = vel.linear.length();
+//     self_obs.vehicle_size = size;
+//     auto goalPos = goal.position - pos.xy();
+//     self_obs.goal.position = rot.inv().rotateVec({goalPos.x, goalPos.y, 0}).xy();
+
+//     auto hasCollided = collisionEvent.hasCollided.load_relaxed();
+//     self_obs.collisionState = hasCollided ? 1.f : 0.f;
+// }
+
 inline void collectSelfObsSystem(Engine &ctx,
                            const VehicleSize &size,
                            const Position &pos,
@@ -137,8 +156,11 @@ inline void collectSelfObsSystem(Engine &ctx,
     auto &self_obs = ctx.get<SelfObservation>(agent_iface.e);
     self_obs.speed = vel.linear.length();
     self_obs.vehicle_size = size;
+    self_obs.start = pos.xy();
+
     auto goalPos = goal.position - pos.xy();
     self_obs.goal.position = rot.inv().rotateVec({goalPos.x, goalPos.y, 0}).xy();
+    self_obs.global_goal.position = goal.position;
 
     auto hasCollided = collisionEvent.hasCollided.load_relaxed();
     self_obs.collisionState = hasCollided ? 1.f : 0.f;
