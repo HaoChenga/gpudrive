@@ -158,7 +158,8 @@ class GPUDriveGymEnv(gym.Env, metaclass=abc.ABCMeta):
             if self.device == "cpu"
             else gpudrive.madrona.ExecMode.CUDA
         )
-        if scene_config.special_scene is None:
+        if scene_config.special_scene is not None:
+            print(f"\n>>>>Using special scene\n")
             dataset = scene_config.special_scene
         else:
             dataset = select_scenes(scene_config)
