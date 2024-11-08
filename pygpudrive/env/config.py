@@ -139,7 +139,7 @@ class SceneConfig:
     num_scenes: int
     discipline: SelectionDiscipline = SelectionDiscipline.PAD_N
     k_unique_scenes: Optional[int] = None
-
+    special_scene: Optional[str] = None
 
 class RenderMode(Enum):
     """Enum for specifying rendering mode."""
