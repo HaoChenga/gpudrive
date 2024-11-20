@@ -115,9 +115,9 @@ static inline void initWorld(Engine &ctx)
 // reset is needed, cleanup the existing world and generate a new one.
 inline void resetSystem(Engine &ctx, WorldReset &reset)
 {
-    if (reset.reset == 0) {
-      return;
-    }
+    // if (reset.reset == 0) {
+    //   return;
+    // }
 
     reset.reset = 0;
 
