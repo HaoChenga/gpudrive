@@ -260,12 +260,14 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
             ego_states_unprocessed = (
                 self.sim.self_observation_tensor().to_torch()
             )
+
             if self.config.norm_obs:
                 ego_states = self.normalize_ego_state(ego_states_unprocessed)
             else:
                 ego_states = ego_states_unprocessed
         else:
             ego_states = torch.Tensor().to(self.device)
+
 
         ego_states_full = ego_states.clone()
         obs_filter_ids = [0, 1, 2, 3, 4, 7] # [speed, length, width, rel_goal_x, rel_goal_y, collision] 
@@ -309,12 +311,13 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
         # Combine the observations
         obs_filtered = torch.cat(
             (
-                ego_states,
+                ego_states, #6
                 partner_observations,
-                road_map_observations,
+                road_map_observations,#2600
             ),
             dim=-1,
         )
+
         return obs_filtered, ego_states_full
 
     def get_controlled_agents_mask(self):
@@ -344,6 +347,29 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
             constants.MAX_REL_GOAL_COORD,
         )
 
+        if state.shape[-1] > 5:
+            # Global goal coordinates
+            state[:, :, 5] = self.normalize_tensor(
+                state[:, :, 5],
+                constants.MIN_GLOBAL_COORD,
+                constants.MAX_GLOBAL_COORD,
+            )
+            state[:, :, 6] = self.normalize_tensor(
+                state[:, :, 6],
+                constants.MIN_GLOBAL_COORD,
+                constants.MAX_GLOBAL_COORD,
+            )
+
+            state[:, :, 8] = self.normalize_tensor(
+                state[:, :, 8],
+                constants.MIN_GLOBAL_COORD,
+                constants.MAX_GLOBAL_COORD,
+            )
+            state[:, :, 9] = self.normalize_tensor(
+                state[:, :, 9],
+                constants.MIN_GLOBAL_COORD,
+                constants.MAX_GLOBAL_COORD,
+            )
         # Uncommment this to exclude the collision state
         # (1 if vehicle is in collision, 1 otherwise)
         # state = state[:, :, :5]
@@ -541,10 +567,45 @@ class GPUDriveTorchEnv(GPUDriveGymEnv):
         # Road types: one-hot encode them
         one_hot_road_types = self.one_hot_encode_roadpoints(obs[:, :, :, 6])
 
+
         # Concatenate the one-hot encoding with the rest of the features
         obs = torch.cat((obs[:, :, :, :6], one_hot_road_types), dim=-1)
 
         return obs.flatten(start_dim=2)
+    
+
+    def normalize_and_flatten_global_map_objects(self, obs):
+        """Normalize global map objects."""
+        # Road point coordinates
+        obs[:, :,  0] = self.normalize_tensor(
+            obs[:, :,  0],
+            constants.MIN_RG_COORD,
+            constants.MAX_RG_COORD,
+        )
+
+        obs[:, :,  1] = self.normalize_tensor(
+            obs[:, :,  1],
+            constants.MIN_RG_COORD,
+            constants.MAX_RG_COORD,
+        )
+
+        # Road line segment length
+        obs[:, :, 2] /= constants.MAX_ROAD_LINE_SEGMENT_LEN
+
+        # Road scale (width and height)
+        obs[:, :, 3] /= constants.MAX_ROAD_SCALE
+        # obs[:, :, :, 4] seems already scaled
+
+        # Road point orientation
+        obs[:, :, 5] /= constants.MAX_ORIENTATION_RAD
+
+        # Road types: one-hot encode them
+        one_hot_road_types = self.one_hot_encode_roadpoints(obs[:, :, 6])
+
+        # Concatenate the one-hot encoding with the rest of the features
+        obs = torch.cat((obs[:, :,  :6], one_hot_road_types), dim=-1)
+
+        return obs.flatten(start_dim=1)
 
 
 if __name__ == "__main__":

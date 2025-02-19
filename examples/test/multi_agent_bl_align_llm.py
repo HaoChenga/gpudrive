@@ -32,9 +32,15 @@ if __name__ == "__main__":
 
     BATCH_NUM=args.batch_num
     #VIDEO_PATH = f"save_data/world_num{NUM_WORLDS}_episode_length_{EPISODE_LENGTH}_agent_{MAX_CONTROLLED_AGENTS}/videos"
-    DATA_PATH = f"dataset/dataset/formatted_json_v2_no_tl_train_split_1000/batch_{BATCH_NUM}"
-    DATA_SAVE_DIR = f"save_data/world_num_{NUM_WORLDS}_episode_length_{EPISODE_LENGTH}_agent_{MAX_CONTROLLED_AGENTS}_actor_{args.actor}_for_test"
-    scenes_path = f"dataset/output/gpudrive_ori_data_34000/reserve_world_num_362_agent_num_5_interact_coeff_3.0/coll_coeff_1.4_prob_planning_per_frame/eval/baseline/test_mask/test_scenes.txt"
+    if args.scene_path is None:
+        DATA_PATH = None
+    else:
+        DATA_PATH = f"dataset/dataset/formatted_json_v2_no_tl_train_split_1000/batch_{BATCH_NUM}"
+    #DATA_SAVE_DIR = f"save_data/world_num_{NUM_WORLDS}_episode_length_{EPISODE_LENGTH}_agent_{MAX_CONTROLLED_AGENTS}_actor_{args.actor}_for_test"
+    DATA_SAVE_DIR = args.output_dir
+    #scenes_path = f"dataset/output/gpudrive_ori_data_34000/reserve_world_num_362_agent_num_5_interact_coeff_3.0/coll_coeff_1.4_prob_planning_per_frame/eval/baseline/test_mask/test_scenes.txt"
+    scenes_path = args.scene_path
+
     FPS = 23
     start_time = time.time()
 
