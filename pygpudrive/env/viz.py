@@ -360,16 +360,16 @@ class PyGameVisualizer:
             self.map_surfs.append(map_surf)
 
     def getRender(
-        self, world_render_idx=0, color_objects_by_actor=None, **kwargs
+        self, world_render_idx=0, color_objects_by_actor=None, cur_time=0,pred_trajectory=None,mask=None,**kwargs
     ):
         if self.render_config.render_mode in {
             RenderMode.PYGAME_ABSOLUTE,
             RenderMode.PYGAME_EGOCENTRIC,
             RenderMode.PYGAME_LIDAR,
         }:
-            cont_agent_mask = kwargs.get("cont_agent_mask", None)
+            # cont_agent_mask = kwargs.get("cont_agent_mask", None)
             return self.draw(
-                cont_agent_mask, world_render_idx, color_objects_by_actor
+                mask, world_render_idx, color_objects_by_actor,cur_time,pred_trajectory
             )
         elif self.render_config.render_mode == RenderMode.MADRONA_RGB:
             if self.render_config.view_option == MadronaOption.TOP_DOWN:
@@ -409,10 +409,12 @@ class PyGameVisualizer:
             )
 
     def draw(
-        self, cont_agent_mask, world_render_idx=0, color_objects_by_actor=None
+        self, cont_agent_mask, world_render_idx=0, color_objects_by_actor=None,cur_time=0,pred_trajectory=None
     ):
-        """Render the environment."""
+        candidate=np.where(cont_agent_mask!=0)[0]
+        candidate=candidate[:10]
 
+        """Render the environment."""
         if self.render_config.render_mode == RenderMode.PYGAME_EGOCENTRIC:
             render_rgbs = []
             num_agents = self.num_agents[world_render_idx][0]
@@ -548,7 +550,7 @@ class PyGameVisualizer:
                 .detach()
                 .numpy()
             )
-
+            
             # Get the agent goal positions and current positions
             agent_pos = agent_info[:, :2]  # x, y
             goal_pos = agent_info[:, 8:10]  # x, y
@@ -561,6 +563,16 @@ class PyGameVisualizer:
                 .detach()
                 .numpy()
             )
+            TRAJ_LEN = 91
+            log_trajectory = (
+                self.sim.expert_trajectory_tensor()
+                .to_torch()[world_render_idx, :, : 2 * TRAJ_LEN]
+                .view(128, TRAJ_LEN, -1)
+                .cpu()
+                .detach()
+                .numpy()
+            )
+            # print(log_trajectory.shape)#128,91,2
 
             num_agents = self.num_agents[world_render_idx][0]
             if color_objects_by_actor is not None:
@@ -569,7 +581,7 @@ class PyGameVisualizer:
             valid_agent_indices = list(
                 range((agent_response_types == 0).sum())
             )
-
+            gli=0
             # Draw the agent positions
             for agent_idx in range(num_agents):
 
@@ -615,13 +627,51 @@ class PyGameVisualizer:
                 if agent_response_types[agent_idx] == STATIC_AGENT_ID:
                     color = (128, 128, 128)
 
+                if agent_response_types[agent_idx] != STATIC_AGENT_ID and agent_idx not in candidate:
+                    continue
+
+                ff=[v for p in agent_corners for v in p]
+                mi=min(ff)
+
                 pygame.gfxdraw.aapolygon(self.surf, agent_corners, color)
                 pygame.gfxdraw.filled_polygon(self.surf, agent_corners, color)
+                # print(candidate)
+
+                if agent_response_types[agent_idx] != STATIC_AGENT_ID and cur_time < 83 and agent_idx in candidate:
+                    if mi<0:
+                        gli+=1
+                        continue
+                    #here agent_idx is aligned with the mask
+                    #if mask =[0,3,5,9,11] idx=[0,3,5,9,11]
+                    expert_traj=log_trajectory[agent_idx]
+                    pred_traj=pred_trajectory[gli]
+                    traj_todraw=expert_traj[cur_time:cur_time+7]
+                    pred_todraw=pred_traj[cur_time,...]
+                    # print(pred_traj.shape)
+                    # print(pred_todraw.shape)
+                    for i in range(len(pred_todraw)-1):
+                        p0=self.scale_coords(
+                            pred_todraw[i], world_render_idx
+                        )
+                        p1=self.scale_coords(
+                            pred_todraw[i+1], world_render_idx
+                        )
+                        t0=self.scale_coords(
+                            traj_todraw[i], world_render_idx
+                        )
+                        t1=self.scale_coords(
+                            traj_todraw[i+1], world_render_idx
+                        )
+                        pygame.draw.line(self.surf,(0,0,255),(p0[0].item(),p0[1].item()),(p1[0].item(),p1[1].item()),4)
+                        pygame.draw.line(self.surf,(5,203,244),(t0[0].item(),t0[1].item()),(t1[0].item(),t1[1].item()),4)
+                    gli+=1
+                    
 
                 # Draw object indices for the controllable agents
                 if (
                     self.render_config.draw_obj_idx
                     and agent_response_types[agent_idx] != STATIC_AGENT_ID
+                    and agent_idx in candidate
                 ):
                     scaled_font_size = (
                         self.render_config.obj_idx_font_size
@@ -638,9 +688,12 @@ class PyGameVisualizer:
                             agent_corners[0][1],
                         )
                     )
-                    self.surf.blit(text, text_rect)
 
-                if agent_response_types[agent_idx] != STATIC_AGENT_ID:
+                            
+                    # self.surf.blit(text, text_rect)
+
+                if agent_response_types[agent_idx] != STATIC_AGENT_ID and agent_idx in candidate and mi>0:
+                   
                     self.draw_circle(
                         self.surf,
                         current_goal_scaled,
@@ -648,6 +701,8 @@ class PyGameVisualizer:
                         * self.zoom_scales_x[world_render_idx],
                         color,
                     )
+
+
 
             if self.render_config.view_option == PygameOption.HUMAN:
                 pygame.event.pump()

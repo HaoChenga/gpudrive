@@ -230,7 +230,7 @@ class GPUDriveGymEnv(gym.Env, metaclass=abc.ABCMeta):
             )
         return params
 
-    def render(self, world_render_idx=0, color_objects_by_actor=None):
+    def render(self, world_render_idx=0, cur_time=0,pred_trajectory=None,mask=None,color_objects_by_actor=None):
         """Renders the environment.
 
         Args:
@@ -251,6 +251,9 @@ class GPUDriveGymEnv(gym.Env, metaclass=abc.ABCMeta):
                 world_render_idx=world_render_idx,
                 cont_agent_mask=self.cont_agent_mask,
                 color_objects_by_actor=color_objects_by_actor,
+                cur_time=cur_time,
+                pred_trajectory=pred_trajectory,
+                mask=mask
             )
         elif self.render_config.render_mode in {
             RenderMode.MADRONA_RGB,
