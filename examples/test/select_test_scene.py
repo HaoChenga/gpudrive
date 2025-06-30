@@ -5,7 +5,7 @@ import itertools
 import torch
 import pickle
 
-def select_test_scence(scenes_path, reserve_mask_dir, test_mask_path):
+def select_test_scence(scenes_path, reserve_mask_dir, test_mask_path=None, output_dir=None):
 
 
     reserve_agent_mask_all_path, reserve_agent_mask_num_over_thrd_path, reserve_mask_path = generate_path(reserve_mask_dir, ['reserve_agent_mask_all.pkl', 'reserve_agent_mask_num_over_thrd.pkl', 'reserve_mask.pkl'])
@@ -28,10 +28,12 @@ def select_test_scence(scenes_path, reserve_mask_dir, test_mask_path):
     
     
 
-    with open(test_mask_path, 'r') as f:
-        test_mask = yaml.load(f, Loader=yaml.FullLoader)
-        train_count = test_mask['train_world_num']
-        test_world_small_num = test_mask['test_world_small_num']
+    # with open(test_mask_path, 'r') as f:
+    #     test_mask = yaml.load(f, Loader=yaml.FullLoader)
+    #     train_count = test_mask['train_world_num']
+    #     test_world_small_num = test_mask['test_world_small_num']
+
+
 
 
 
@@ -47,23 +49,70 @@ def select_test_scence(scenes_path, reserve_mask_dir, test_mask_path):
     reserve_agent_mask = torch.stack(reserve_agent_mask_list, dim=0)
     reserve_agent_mask = reserve_agent_mask[reserve_mask]
 
-    breakpoint()
-    test_scenes = reserve_scenes[train_count:]
-    test_small_scenes = test_scenes[:test_world_small_num]   
 
-    reserve_agent_mask_test = reserve_agent_mask[train_count:]
-    reserve_agent_mask_test_small = reserve_agent_mask_test[:test_world_small_num]
+    train_count  = int(len(reserve_scenes) * 0.8)
 
+    start = 10
+    test_world_small_num = 20
+    train_small_count = 300
 
     #breakpoint()
-    save_scence_path = os.path.join(os.path.dirname(scenes_path), 'test_scenes.txt')
+    train_scenes = reserve_scenes[:train_count]
+    train_small_scenes = train_scenes[:train_small_count]
+
+
+    test_scenes = reserve_scenes[train_count:]
+    test_small_scenes = test_scenes[start:(start+test_world_small_num)]   
+
+
+    reserve_agent_mask_train = reserve_agent_mask[:train_count]
+    reserve_agent_mask_train_small = reserve_agent_mask_train[:train_small_count]
+
+    reserve_agent_mask_test = reserve_agent_mask[train_count:]
+    reserve_agent_mask_test_small = reserve_agent_mask_test[start:(start+test_world_small_num)]
+
+    print("selected test scenes from", start, "to", start+test_world_small_num)
+
+    if output_dir is None:
+        output_dir = os.path.dirname(scenes_path)
+    else:
+        os.makedirs(output_dir, exist_ok=True)
+
+    breakpoint()
+    save_scence_path = os.path.join(output_dir, 'test_small_scenes.txt')
     with open(save_scence_path, "w") as f:
         for scene_path in test_small_scenes:
             f.write(scene_path + "\n")
 
-    save_reserve_agent_mask_path = os.path.join(os.path.dirname(scenes_path), 'reserve_agent_mask_for_test.pkl')
+    save_scence_path_train_small = os.path.join(output_dir, 'train_small_scenes.txt')
+    with open(save_scence_path_train_small, "w") as f:
+        for scene_path in train_small_scenes:
+            f.write(scene_path + "\n")
+
+
+    save_scence_path_train = os.path.join(output_dir, 'train_scenes.txt')
+    with open(save_scence_path_train, "w") as f:
+        for scene_path in train_scenes:
+            f.write(scene_path + "\n")
+
+
+
+    
+    save_reserve_agent_mask_path_train = os.path.join(output_dir, 'reserve_agent_mask_for_train.pkl')
+    with open(save_reserve_agent_mask_path_train, 'wb') as f:
+        pickle.dump(reserve_agent_mask_train, f)
+
+    
+    save_reserve_agent_mask_path_train_small = os.path.join(output_dir, 'reserve_agent_mask_for_train_small.pkl')
+    with open(save_reserve_agent_mask_path_train_small, 'wb') as f:
+        pickle.dump(reserve_agent_mask_train_small, f)
+
+
+    save_reserve_agent_mask_path = os.path.join(output_dir, 'reserve_agent_mask_for_test_small.pkl')
     with open(save_reserve_agent_mask_path, 'wb') as f:
         pickle.dump(reserve_agent_mask_test_small, f)
+
+    
 
     print(f"\nsaved scene paths to {save_scence_path}\n")
     print(f"\nsaved scene paths to {save_reserve_agent_mask_path}\n")
@@ -122,14 +171,16 @@ def compare_test_with_LLM(llm_obs_dir, compared_obs_dir, reserve_agent_mask_test
     
 
 if __name__ == '__main__':
-    # scenes_path = 'dataset/output/gpudrive_ori_data_34000/scene_paths.txt'
-    # reserve_mask_dir = 'dataset/output/gpudrive_ori_data_34000/reserve_world_num_362_agent_num_5_interact_coeff_3.0'
+    scenes_path = 'dataset/output/gpudrive_ori_data_34000/train_test_data_for_rl/scene_paths.txt'
+    reserve_mask_dir = 'dataset/output/gpudrive_ori_data_34000/reserve_world_num_740_agent_num_10_with_padding_interact_coeff_3.0'
+    output_dir = 'dataset/output/visualization_data/next_frame_20'
+
     # test_mask_path = 'dataset/output/gpudrive_ori_data_34000/reserve_world_num_362_agent_num_5_interact_coeff_3.0/coll_coeff_1.4_prob_planning_per_frame/prompt/config.yaml'
-    # select_test_scence(scenes_path, reserve_mask_dir, test_mask_path)
+    select_test_scence(scenes_path, reserve_mask_dir, output_dir=output_dir)
 
     #compare the test data with LLM data
-    llm_obs_dir = 'dataset/output/gpudrive_ori_data_34000/reserve_world_num_362_agent_num_5_interact_coeff_3.0'
-    compared_obs_path = 'save_data/world_num_1000_episode_length_91_agent_128_actor_expert_for_test/pkl'
-    test_mask_path = 'dataset/output/gpudrive_ori_data_34000/reserve_world_num_362_agent_num_5_interact_coeff_3.0/coll_coeff_1.4_prob_planning_per_frame/prompt/config.yaml'
-    reserve_agent_mask_test_dir = 'dataset/output/gpudrive_ori_data_34000'
-    compare_test_with_LLM(llm_obs_dir, compared_obs_path, reserve_agent_mask_test_dir, test_mask_path)
+    # llm_obs_dir = 'dataset/output/gpudrive_ori_data_34000/reserve_world_num_362_agent_num_5_interact_coeff_3.0'
+    # compared_obs_path = 'save_data/world_num_1000_episode_length_91_agent_128_actor_expert_for_test/pkl'
+    # test_mask_path = 'dataset/output/gpudrive_ori_data_34000/reserve_world_num_362_agent_num_5_interact_coeff_3.0/coll_coeff_1.4_prob_planning_per_frame/prompt/config.yaml'
+    # reserve_agent_mask_test_dir = 'dataset/output/gpudrive_ori_data_34000'
+    # compare_test_with_LLM(llm_obs_dir, compared_obs_path, reserve_agent_mask_test_dir, test_mask_path)
